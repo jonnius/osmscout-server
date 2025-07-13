@@ -1,7 +1,10 @@
-clickable_minimum_required: 7.0.1
+clickable_minimum_required: 8.0.1
 
 scripts:
   prepare-deps: git submodule update --recursive --init && ${ROOT}/packaging/click-16.04/prepare-deps.sh
+
+framework: ubuntu-sdk-16.04
+ignore_review_errors: true
 
 builder: qmake
 build_args:
@@ -10,19 +13,17 @@ build_args:
 - CONFIG+=disable_mapnik
 - LIBS+=-L${LIBPOSTAL_LIB_INSTALL_DIR}/usr/local/lib
 - INCLUDEPATH+=${LIBPOSTAL_LIB_INSTALL_DIR}/usr/local/include
-- LIBS+=-L${VALHALLA_LIB_INSTALL_DIR}/lib
-- LIBS+=-L${VALHALLA_LIB_INSTALL_DIR}/lib/${ARCH_TRIPLET}
-- INCLUDEPATH+=${VALHALLA_LIB_INSTALL_DIR}/include
+- LIBS+=-L${VALHALLA_LIB_INSTALL_DIR}/usr/lib/${ARCH_TRIPLET}
+- INCLUDEPATH+=${VALHALLA_LIB_INSTALL_DIR}/usr/include
 - PREFIX=/usr
 - PREFIX_RUNNING=usr
 env_vars:
-  PKG_CONFIG_PATH: ${VALHALLA_LIB_INSTALL_DIR}/lib/pkgconfig:${VALHALLA_LIB_INSTALL_DIR}/lib/${ARCH_TRIPLET}/pkgconfig
+  PKG_CONFIG_PATH: ${VALHALLA_LIB_INSTALL_DIR}/usr/lib/${ARCH_TRIPLET}/pkgconfig
 prebuild:
 - sed -i 's/MHD_USE_ITC/MHD_USE_PIPE_FOR_SHUTDOWN/g' ${SRC_DIR}/server/src/uhttp/microhttpserver.cpp
 postbuild:
 - ln -s ../../usr/bin ${CLICK_PATH}
 - sed -i 's/@ARCH_TRIPLET@/${ARCH_TRIPLET}/g' ${INSTALL_DIR}/osmscout-server.conf
-ignore_review_errors: true
 
 dependencies_host:
 - gcc-opt
@@ -66,20 +67,26 @@ libraries:
     - libtool
 
   valhalla:
-    builder: cmake
     src_dir: libs/valhalla/valhalla
+
+    builder: cmake
     build_args:
-    - -DTHREADS_PTHREAD_ARG=0
     - -DCMAKE_INSTALL_PREFIX:PATH=/usr
     - -DBUILD_SHARED_LIBS=OFF
     - -DENABLE_DATA_TOOLS=OFF
     - -DENABLE_PYTHON_BINDINGS=OFF
-    - -DENABLE_NODE_BINDINGS=OFF
     - -DENABLE_SERVICES=OFF
+    - -DENABLE_TESTS=OFF
+    - -DENABLE_WERROR=OFF
+    - -DENABLE_SINGLE_FILES_WERROR=OFF
+
+    postbuild:
+    - sed -i 's/boost_filesystem[^ ]*/boost_filesystem/g' \
+        ${INSTALL_DIR}/usr/lib/${ARCH_TRIPLET}/pkgconfig/libvalhalla.pc
+    - cp -r ${SRC_DIR}/third_party/date/include/date ${INSTALL_DIR}/usr/include/
+
     dependencies_host:
-    - libtool
     - gcc-opt
-    - jq
     - protobuf-compiler
     dependencies_target:
     - liblua5.3-dev
